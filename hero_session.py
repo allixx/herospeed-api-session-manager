@@ -166,7 +166,7 @@ def session_login(host, port, credentials, timeout=TIMEOUT):
 def session_logout(host, port, session_id, timeout=TIMEOUT):
     """Log out from session ID"""
     url = f"{host}:{port}/api/session/logout"
-    data = {"action": "set", "data": {}}
+    data = {"action": "set", "data": {"cookie": f"sessionID={session_id}"}}
 
     headers = HEADERS.copy()
     headers["Cookie"] = f"sessionID={session_id}"
