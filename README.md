@@ -16,10 +16,12 @@ End-user part is handled by `hero_session_manager.py` script. Its `login` comman
 
 To clean session data up, `logout` command is implemented as well (`/api/session/logout` endpoint).
 
+To verify sessionID validity, use `verify` command (`/api/session/heart-beat` endpoint).
+
 To discover existing API endpoints and their arguments, use Firefox Developer Tools while poking around WEB interface, they are not obfuscated.
 
 # Internals
 
-`hero_session.py` contains implementation of `HerospeedPasswordHash` class handling password hash derivation, and `session_login` and `session_logout` function helpers.
+`hero_session.py` contains implementation of `HerospeedPasswordHash` class handling password hash derivation, `session_login`, `session_logout` and `session_verify` function helpers.
 
 `hero_session_test.py` verifies correctness of password hash generation using known-good captured data.

@@ -178,3 +178,17 @@ def session_logout(host, port, session_id, timeout=TIMEOUT):
         if DEBUG:
             body = json.loads(response.read())
             print(body)
+
+
+def session_verify(host, port, session_id, timeout=TIMEOUT):
+    """Verify session ID validity"""
+    url = f"{host}:{port}/api/session/heart-beat"
+    data = {"operaType": "checkSessionHeart"}
+
+    headers = HEADERS.copy()
+    headers["Cookie"] = f"sessionID={session_id}"
+
+    form_data = json.dumps(data).encode()
+    req = request.Request(url=url, data=form_data, headers=headers)
+
+    request.urlopen(req, timeout=timeout)

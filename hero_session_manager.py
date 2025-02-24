@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from hero_session import session_login, session_logout, TIMEOUT
+from hero_session import session_login, session_logout, session_verify, TIMEOUT
 
 
 def parse_args():
@@ -41,6 +41,10 @@ def parse_args():
     logout_parser.add_argument("--session_id", required=True)
     add_common_args(logout_parser)
 
+    verify_parser = subparsers.add_parser("verify", help="Verify specified session_id")
+    verify_parser.add_argument("--session_id", required=True)
+    add_common_args(verify_parser)
+
     if len(sys.argv) == 1:
         parser.print_help()
         sys.exit(0)
@@ -59,8 +63,15 @@ def main():
             timeout=args.timeout,
         )
         print(session_id)
-    else:
+    elif args.command == "logout":
         session_logout(
+            host=args.host,
+            port=args.port,
+            session_id=args.session_id,
+            timeout=args.timeout,
+        )
+    else:
+        session_verify(
             host=args.host,
             port=args.port,
             session_id=args.session_id,
