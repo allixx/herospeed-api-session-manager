@@ -4,9 +4,8 @@ import base64
 import datetime
 import hashlib
 import json
-
+from http import HTTPStatus
 from urllib import request
-
 
 DEBUG = False
 TIMEOUT = 5
@@ -24,6 +23,8 @@ if DEBUG:
 
 
 class HerospeedPasswordHash:
+    """Derive password hash required for session_id retrieval"""
+
     def __init__(
         self,
         username,
@@ -43,43 +44,48 @@ class HerospeedPasswordHash:
         self.timestamp = timestamp
 
     @staticmethod
-    def hex_digest_to_string(hashsum):
+    def _hex_digest_to_string(hashsum):
         # encoding as Latin-1 as full range 0-255 chars are expected
         return bytearray.fromhex(hashsum).decode("Latin-1")
 
-    def roundOne(self):
+    def _round_one(self):
         if self.timestamp is None:
-            self.timestamp = datetime.datetime.now().replace(microsecond=0).isoformat()
+            self.timestamp = (
+                datetime.datetime.now(tz=datetime.timezone.utc)
+                .replace(microsecond=0)
+                .isoformat()
+            )
 
         return base64.b64encode(self.timestamp.encode()).decode()
 
-    def roundTwo(self, hashsum):
+    def _round_two(self, hashsum):
         string = self.username + self.salt + hashsum + self.password
         sha256sum = hashlib.sha256()
         sha256sum.update(string.encode())
         return sha256sum.hexdigest()
 
     @staticmethod
-    def roundThree(hashsum, challenge):
-        string = HerospeedPasswordHash.hex_digest_to_string(hashsum) + challenge
+    def _round_three(hashsum, challenge):
+        string = HerospeedPasswordHash._hex_digest_to_string(hashsum) + challenge
         sha256sum = hashlib.sha256()
         #  Latin-1 encoding from hex_digest_to_string
         sha256sum.update(string.encode("Latin-1"))
         return sha256sum.hexdigest()
 
-    def roundFour(self, hashsum):
-        for i in range(0, self.iterations):
-            hashsum = self.roundThree(hashsum, "")
+    def _round_four(self, hashsum):
+        for _ in range(self.iterations):
+            hashsum = self._round_three(hashsum, "")
 
         return hashsum
 
     def derive(self):
-        hashsum = self.roundOne()
-        hashsum = self.roundTwo(hashsum)
-        hashsum = self.roundThree(hashsum, self.challenge)
+        """Perform all obfuscation steps"""
+        hashsum = self._round_one()
+        hashsum = self._round_two(hashsum)
+        hashsum = self._round_three(hashsum, self.challenge)
 
         if self.enable_iteration:
-            hashsum = self.roundFour(hashsum)
+            hashsum = self._round_four(hashsum)
 
         return hashsum
 
@@ -106,7 +112,22 @@ def session_login(host, port, credentials, timeout=TIMEOUT):
 
     with request.urlopen(req, timeout=timeout) as response:
         # Expected response
-        # {'code': 0, 'msg': None, 'data': {'encryptionType': ['sha256-1'], 'sessionID': 'f75e0a12b4c4db61cf3e45cfd2347c64', 'param': {'challenge': 'c8aa8ae6769fb64e18326121aff1540f', 'iterations': 100, 'enableIteration': True, 'salt': 'dd51b849f74d6d0fe91207716733e64e'}}}
+        # {
+        #     "code":0,
+        #     "msg":"None",
+        #     "data":{
+        #         "encryptionType":[
+        #             "sha256-1"
+        #         ],
+        #         "sessionID":"f75e0a12b4c4db61cf3e45cfd2347c64",
+        #         "param":{
+        #             "challenge":"c8aa8ae6769fb64e18326121aff1540f",
+        #             "iterations":100,
+        #             "enableIteration":true,
+        #             "salt":"dd51b849f74d6d0fe91207716733e64e"
+        #         }
+        #     }
+        # }
         body = json.loads(response.read())["data"]
 
         if DEBUG:
@@ -147,8 +168,14 @@ def session_login(host, port, credentials, timeout=TIMEOUT):
 
     with request.urlopen(req, timeout=timeout) as response:
         # Expected response
-        # { "code": 0, "msg": null, "data": { "cookie": "sessionID=fe4368c1143e82a30ecc4d79d75e7744" } }
-        if response.status == 200 and response.reason == "OK":
+        # {
+        #     "code":0,
+        #     "msg":null,
+        #     "data":{
+        #         "cookie":"sessionID=fe4368c1143e82a30ecc4d79d75e7744"
+        #     }
+        # }
+        if response.status == HTTPStatus.OK and response.reason == "OK":
             body = json.loads(response.read())
 
             if DEBUG:
@@ -156,7 +183,8 @@ def session_login(host, port, credentials, timeout=TIMEOUT):
 
             response_code = body.get("code", -1)
             if response_code != 0:
-                raise ValueError(f"Invalid login response code: {response_code}")
+                error = f"Invalid login response code: {response_code}"
+                raise ValueError(error)
 
             _, session_id = body["data"]["cookie"].split("=")
 

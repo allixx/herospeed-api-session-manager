@@ -3,7 +3,7 @@
 import argparse
 import sys
 
-from hero_session import session_login, session_logout, session_verify, TIMEOUT
+from hero_session import TIMEOUT, session_login, session_logout, session_verify
 
 
 def parse_args():
